@@ -23,7 +23,9 @@ Modify config.json:
 
 ### Configure the script to run on startup (DEBIAN/LINUX ONLY)
 1. Install tmux
-2. Create a script that starts the tmux session and runs python:
+
+3. Create a script that starts the tmux session and runs python:
+
 /home/user/startup.sh:
 ```
 #!/bin/bash
@@ -62,6 +64,7 @@ sudo systemctl enable frigate-smtp.service
 sudo systemctl start frigate-smtp.service`
 
 4. Verify it works:
+
 `sudo systemctl status frigate-smtp.service`
 OR
 `tmux attach -t emails` (remember to exit safely by pressing CTRL+B then D)
