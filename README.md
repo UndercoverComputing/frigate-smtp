@@ -34,7 +34,7 @@ Modify config.json:
 tmux new-session -d -s emails
 
 # Send commands to the 'emails' session
-tmux send-keys -t emails 'cd /opt/Frigate-SMTP' C-m
+tmux send-keys -t emails 'cd /home/user/Frigate-SMTP' C-m
 tmux send-keys -t emails 'python3 main.py' C-m
 ```
 
@@ -50,8 +50,8 @@ After=network.target
 
 [Service]
 Type=forking
-ExecStart=/opt/Frigate-SMTP/startup.sh
-WorkingDirectory=/opt/Frigate-SMTP
+ExecStart=/home/user/startup.sh
+WorkingDirectory=/home/user/Frigate-SMTP
 Restart=on-failure
 User=root
 
