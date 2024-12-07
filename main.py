@@ -20,7 +20,7 @@ SMTP_USERNAME = config["smtp"]["username"]
 SMTP_PASSWORD = config["smtp"]["password"]
 EMAIL_FROM = config["smtp"]["from"]
 EMAIL_TO = config["smtp"]["to"]
-FRIGATE_URL = config["frigate_url"]
+HOMEASSISTANT_URL = config["homeassistant_url"]
 
 # MQTT configuration
 MQTT_BROKER_IP = config["mqtt"]["broker_ip"]
@@ -62,7 +62,7 @@ def send_email(message, snapshot_urls, event_label, clip_url):
 def handle_event(event_id, event_label, snapshot_urls):
     time.sleep(10)  # Wait for more snapshots before sending email
 
-    clip_url = f"{FRIGATE_URL}/api/frigate/notifications/{event_id}/gate/clip.mp4"
+    clip_url = f"{HOMEASSISTANT_URL}/api/frigate/notifications/{event_id}/gate/clip.mp4"
     email_message = f"A {event_label} was detected.\nEvent ID: {event_id}"
     send_email(email_message, snapshot_urls, event_label, clip_url)
 
@@ -78,7 +78,7 @@ def on_message(client, userdata, message):
         event_data = json.loads(message.payload.decode("utf-8"))
         event_label = event_data["after"]["label"]
         event_id = event_data["after"]["id"]
-        snapshot_url = f"{FRIGATE_URL}/api/frigate/notifications/{event_id}/snapshot.jpg"
+        snapshot_url = f"{HOMEASSISTANT_URL}/api/frigate/notifications/{event_id}/snapshot.jpg"
 
         if event_id in event_cache:
             event_cache[event_id]['snapshot_urls'].append(snapshot_url)
