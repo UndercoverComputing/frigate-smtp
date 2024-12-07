@@ -1,5 +1,6 @@
 # Frigate SMTP Notifications
 Sends email notifications when Frigate NVR detects an object.
+
 `pip install paho-mqtt smtplib requests`
 
 ## Setup
