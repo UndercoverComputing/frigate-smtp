@@ -45,14 +45,14 @@ event_cache = {}
 # Function to send email with attachment and clip link
 def send_email(message, snapshot_urls, event_label, clip_url):
     try:
-        subject = f"Object Detected: {event_label}"
+        subject = f"(Test) {event_label} detected!"
         msg = MIMEMultipart()
         msg['Subject'] = subject
         msg['From'] = EMAIL_FROM
         msg['To'] = ", ".join(EMAIL_TO)
 
         # Add the email body
-        body = f"{message}\n\n(Test) An object was detected at the Gate!\n\nClip link: {clip_url}"
+        body = f"{message}\n\nClip: {clip_url}"
         msg.attach(MIMEText(body))
 
         # Attach snapshots to the email
