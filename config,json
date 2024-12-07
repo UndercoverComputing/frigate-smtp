@@ -10,7 +10,7 @@
       "example2@mail.com"
     ]
   },
-  "frigate_url": "https://homeassistanturl.com",
+  "homeassistant_url": "https://homeassistanturl.com",
   "mqtt": {
     "broker_ip": "emqx.ipv4",
     "port": 1883,
