@@ -9,7 +9,7 @@ This guide also assumes you have access to your Home Assistant integration from 
 1. Go to https://myaccount.google.com/apppasswords
 2. Create a new password with a memorable name like "python" or "smtp"
 3. Copy and paste your password into config.json - `"password": "app password goes here",`
-4. Change your-email@gmail.com to your email.
+4. Change `your-email@gmail.com` in config.json to your email.
 
 ### Snapshots:
 Modify config.json:
