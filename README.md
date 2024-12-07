@@ -1,5 +1,6 @@
 # Frigate SMTP Notifications
 Sends email notifications when Frigate NVR detects an object.
+`pip install paho-mqtt smtplib requests`
 
 ## Setup
 This guide assumes you have Home Assistant and Frigate already set up. If you don't, you can follow this tutorial: https://www.youtube.com/watch?v=XWNquH3tNxc (not my video).
