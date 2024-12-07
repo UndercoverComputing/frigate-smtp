@@ -1,0 +1,20 @@
+{
+  "smtp": {
+    "server": "smtp.gmail.com",
+    "port": 587,
+    "username": "your-email@gmail.com",
+    "password": "your app password",
+    "from": "your-email@gmail.com",
+    "to": [
+      "example1@mail.com",
+      "example2@mail.com"
+    ]
+  },
+  "frigate_url": "https://homeassistanturl.com",
+  "mqtt": {
+    "broker_ip": "emqx.ipv4",
+    "port": 1883,
+    "username": "mqtt username",
+    "password": "mqtt password"
+  }
+}
