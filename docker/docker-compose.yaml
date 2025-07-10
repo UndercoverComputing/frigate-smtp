@@ -18,4 +18,4 @@ services:
       MQTT_USERNAME: mqttuser
       MQTT_PASSWORD: mqttpass
       ALLOWED_CAMERAS: camera1,camera2
-      IGNORED_LABELS: label1,label2
+      IGNORED_LABELS: label1,label2 # if none, anything is acceptable (e.g. "...")
