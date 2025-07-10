@@ -1,4 +1,3 @@
-# Import necessary dependencies
 import paho.mqtt.client as mqtt
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -9,8 +8,16 @@ import json
 from io import BytesIO
 import time
 import threading
+import logging
 
-# Load settings from config.json
+# Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Load config
 with open('config.json', 'r') as f:
     config = json.load(f)
 
@@ -21,17 +28,18 @@ SMTP_PASSWORD = config["smtp"]["password"]
 EMAIL_FROM = config["smtp"]["from"]
 EMAIL_TO = config["smtp"]["to"]
 HOMEASSISTANT_URL = config["homeassistant_url"]
+HOMEASSISTANT_IP = config["homeassistant_ip"]
 
-# MQTT configuration
 MQTT_BROKER_IP = config["mqtt"]["broker_ip"]
 MQTT_PORT = config["mqtt"]["port"]
 MQTT_USERNAME = config["mqtt"]["username"]
 MQTT_PASSWORD = config["mqtt"]["password"]
 
-# Dictionary to track event IDs and email state
+FILTERED_CAMERAS = config.get("allowed_cameras", [])
+IGNORED_LABELS = config.get("ignored_labels", [])
+
 event_cache = {}
 
-# Function to send email with attachment and clip link
 def send_email(message, snapshot_urls, event_label, clip_url):
     subject = f"{event_label} detected!"
     msg = MIMEMultipart()
@@ -39,80 +47,105 @@ def send_email(message, snapshot_urls, event_label, clip_url):
     msg['From'] = EMAIL_FROM
     msg['To'] = ", ".join(EMAIL_TO)
 
-    # Add the email body
     body = f"{message}\n\nClip: {clip_url}"
     msg.attach(MIMEText(body))
 
-    # Attach snapshots to the email
     for snapshot_url in snapshot_urls:
-        response = requests.get(snapshot_url)
-        image_data = BytesIO(response.content)
-        msg.attach(MIMEImage(image_data.read(), name="snapshot.jpg"))
+        try:
+            response = requests.get(snapshot_url, timeout=5)
+            response.raise_for_status()
+            if 'image' in response.headers.get('Content-Type', ''):
+                image_data = BytesIO(response.content)
+                msg.attach(MIMEImage(image_data.read(), name="snapshot.jpg"))
+        except Exception:
+            pass  # silent fail for snapshot issues
 
-    # Send the email
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        server.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
+        logger.info(f"Email sent: {subject} to {', '.join(EMAIL_TO)}")
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
 
-    # Print the status of the email
-    print(f"Email sent to {', '.join(EMAIL_TO)} with subject: {subject}")
+def handle_event(event_id):
+    time.sleep(10)  # Delay to collect full snapshots
 
-# Function to handle the event timeout and send email after waiting for new snapshots
-def handle_event(event_id, event_label, snapshot_urls):
-    time.sleep(10)  # Wait for more snapshots before sending email
+    if event_id not in event_cache:
+        return
 
-    clip_url = f"{HOMEASSISTANT_URL}/api/frigate/notifications/{event_id}/gate/clip.mp4"
-    email_message = f"A {event_label} was detected.\nEvent ID: {event_id}"
-    send_email(email_message, snapshot_urls, event_label, clip_url)
+    event_info = event_cache[event_id]
+    clip_url = f"{HOMEASSISTANT_URL}/api/frigate/notifications/{event_id}/{event_info['camera']}/clip.mp4"
+    message = f"A {event_info['event_label']} was detected on camera: {event_info['camera']}.\nEvent ID: {event_id}"
+    send_email(message, event_info['snapshot_urls'], event_info['event_label'], clip_url)
 
-    # Print message after email is sent
-    print(f"Sent email for event: {event_label} (Event ID: {event_id})")
-
-    # Remove event from cache after processing
+    logger.info(f"Processed and emailed event: {event_id}")
     event_cache.pop(event_id, None)
 
-# MQTT message callback
 def on_message(client, userdata, message):
     try:
         event_data = json.loads(message.payload.decode("utf-8"))
-        event_label = event_data["after"]["label"]
-        event_id = event_data["after"]["id"]
-        snapshot_url = f"{HOMEASSISTANT_URL}/api/frigate/notifications/{event_id}/snapshot.jpg"
+        if event_data.get("type") != "new":
+            return
+
+        after = event_data.get("after")
+        if not after:
+            return
+
+        event_id = after.get("id")
+        event_label = after.get("label")
+        camera = after.get("camera")
+
+        if not event_id or not event_label or not camera:
+            return
+
+        if FILTERED_CAMERAS and camera.lower() not in [c.lower() for c in FILTERED_CAMERAS]:
+            return
+
+        if event_label in IGNORED_LABELS:
+            return
+
+        snapshot_url = f"{HOMEASSISTANT_IP}/api/frigate/notifications/{event_id}/snapshot.jpg"
 
         if event_id in event_cache:
             event_cache[event_id]['snapshot_urls'].append(snapshot_url)
         else:
             event_cache[event_id] = {
                 'event_label': event_label,
-                'snapshot_urls': [snapshot_url],
-                'timer': threading.Thread(target=handle_event, args=(event_id, event_label, [snapshot_url]))
+                'camera': camera,
+                'snapshot_urls': [snapshot_url]
             }
-            event_cache[event_id]['timer'].start()
+            threading.Thread(target=handle_event, args=(event_id,), daemon=True).start()
 
-        # Print when motion is detected
-        print(f"Motion detected: {event_label} (Event ID: {event_id})")
+        logger.info(f"Received event: {event_label} from {camera} (Event ID: {event_id})")
 
     except Exception as e:
-        pass  # Ignore errors in message processing
+        logger.error(f"Error processing MQTT message: {e}")
 
-# MQTT connection callback
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         client.subscribe("frigate/events")
+        logger.info("Connected to MQTT broker and subscribed to frigate/events")
+    else:
+        logger.error(f"MQTT connection failed with code {rc}")
 
-# MQTT setup
 def connect_mqtt():
-    client = mqtt.Client()
+    client = mqtt.Client(client_id="frigate_smtp", protocol=mqtt.MQTTv311)
     client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     client.on_connect = on_connect
     client.on_message = on_message
 
-    try:
-        client.connect(MQTT_BROKER_IP, MQTT_PORT, 60)
-        client.loop_forever()
-    except Exception as e:
-        pass  # Ignore connection errors
+    while True:
+        try:
+            logger.info("Connecting to MQTT broker...")
+            client.connect(MQTT_BROKER_IP, MQTT_PORT, 60)
+            client.loop_start()
+            while True:
+                time.sleep(1)
+        except Exception as e:
+            logger.error(f"MQTT connection failed: {e}. Retrying in 5 seconds...")
+            time.sleep(5)
 
 if __name__ == "__main__":
     connect_mqtt()
