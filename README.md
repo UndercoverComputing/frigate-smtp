@@ -2,7 +2,7 @@
 
 This repository provides an SMTP service for Frigate, enabling automated email notifications for detected events. Each alert includes an attached snapshot of the event and a URL linking to the corresponding video clip. Example email:
 ![image](https://github.com/user-attachments/assets/17504338-d941-4114-a78a-d50350b7bedc)
--# Some information redacted for privacy.
+*Some information redacted for privacy.*
 
 ## Prerequisites
 
