@@ -2,6 +2,7 @@ services:
   frigate-smtp:
     build: .
     container_name: frigate-smtp
+    image: frigate_smtp
     restart: unless-stopped
     environment:
       SMTP_SERVER: smtp.example.com
