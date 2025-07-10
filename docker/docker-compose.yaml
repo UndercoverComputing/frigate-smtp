@@ -1,21 +1,21 @@
 services:
   frigate-smtp:
-    build: .
-    container_name: frigate-smtp
-    image: frigate_smtp
-    restart: unless-stopped
-    environment:
-      SMTP_SERVER: smtp.example.com
-      SMTP_PORT: 587
-      SMTP_USERNAME: user@example.com
-      SMTP_PASSWORD: yourpassword
-      EMAIL_FROM: user@example.com
-      EMAIL_TO: you@example.com,friend@example.com
-      HOMEASSISTANT_URL: https://ha.domain.com
-      HOMEASSISTANT_IP: http://ha-ip:8123
-      MQTT_BROKER_IP: mqtt-ip
-      MQTT_PORT: 1883
-      MQTT_USERNAME: mqttuser
-      MQTT_PASSWORD: mqttpass
-      ALLOWED_CAMERAS: camera1,camera2
-      IGNORED_LABELS: label1,label2 # if none, anything is acceptable (e.g. "...")
+    build: .    # Build image from local Dockerfile in current directory
+    container_name: frigate-smtp    # Set container name for easier management
+    image: frigate-smtp    # Name of the Docker image
+    restart: unless-stopped    # Automatically restart container unless manually stopped
+    environment:    # Environment variables to configure the service
+      SMTP_SERVER: smtp.example.com    # SMTP server address for sending emails
+      SMTP_PORT: 587    # SMTP server port (usually 587 for TLS)
+      SMTP_USERNAME: user@example.com    # SMTP username for authentication
+      SMTP_PASSWORD: yourpassword    # SMTP password for authentication
+      EMAIL_FROM: user@example.com    # Sender email address
+      EMAIL_TO: you@example.com,friend@example.com     # Recipient email addresses (comma-separated)
+      HOMEASSISTANT_URL: https://ha.domain.com    # URL to Home Assistant instance (external)
+      HOMEASSISTANT_IP: http://ha-ip:8123    # Home Assistant internal IP URL
+      MQTT_BROKER_IP: mqtt-ip    # MQTT broker IP address
+      MQTT_PORT: 1883    # MQTT broker port
+      MQTT_USERNAME: mqttuser    # MQTT username for authentication
+      MQTT_PASSWORD: mqttpass    # MQTT password for authentication
+      ALLOWED_CAMERAS: camera1,camera2    # List of cameras to allow (comma-separated)
+      IGNORED_LABELS: label1,label2    # Labels to ignore - e.g. car, person, cat; if none, set to "..."
