@@ -17,4 +17,6 @@
     "username": "mqtt username",
     "password": "mqtt password"
   }
+  "allowed_cameras": ["gate"],
+  "ignored_labels": ["person"]
 }
