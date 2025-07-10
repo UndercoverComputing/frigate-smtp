@@ -1,0 +1,20 @@
+services:
+  frigate-smtp:
+    build: .
+    container_name: frigate-smtp
+    restart: unless-stopped
+    environment:
+      SMTP_SERVER: smtp.example.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: user@example.com
+      SMTP_PASSWORD: yourpassword
+      EMAIL_FROM: user@example.com
+      EMAIL_TO: you@example.com,friend@example.com
+      HOMEASSISTANT_URL: https://ha.domain.com
+      HOMEASSISTANT_IP: http://ha-ip:8123
+      MQTT_BROKER_IP: mqtt-ip
+      MQTT_PORT: 1883
+      MQTT_USERNAME: mqttuser
+      MQTT_PASSWORD: mqttpass
+      ALLOWED_CAMERAS: camera1,camera2
+      IGNORED_LABELS: label1,label2
