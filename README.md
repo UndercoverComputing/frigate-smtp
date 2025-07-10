@@ -14,10 +14,10 @@ This repository provides an SMTP service for Frigate, enabling automated email n
 
 ```
 /docker
-├── main.py              # Main application script
-├── generate_config.py   # Script to generate configuration
 ├── Dockerfile           # Docker image definition
 ├── docker-compose.yaml  # Docker Compose configuration
+├── generate_config.py   # Script to generate configuration
+├── main.py              # Main application script
 └── requirements.txt     # Python dependencies
 ```
 
