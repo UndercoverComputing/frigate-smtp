@@ -62,8 +62,7 @@ Follow these steps to set up and run the Frigate SMTP service:
 
    Replace `your.smtp.server`, `587`, `your_username`, and `your_password` with your actual SMTP server details.
 
-   **Per-camera rules (optional — new feature)**
-   You can replace the global `ALLOWED_CAMERAS` / `IGNORED_LABELS` approach with a per-camera rules file named `alert_rules.json`. If present, the service will use the rules file instead of the global env vars.
+   **Per-camera rules**
 
    Example `alert_rules.json`:
 
