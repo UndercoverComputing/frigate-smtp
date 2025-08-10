@@ -17,10 +17,13 @@ config = {
         "port": int(os.getenv("MQTT_PORT", 1883)),
         "username": os.getenv("MQTT_USERNAME", ""),
         "password": os.getenv("MQTT_PASSWORD", "")
-    },
-    "allowed_cameras": os.getenv("ALLOWED_CAMERAS", "").split(",") if os.getenv("ALLOWED_CAMERAS") else [],
-    "ignored_labels": os.getenv("IGNORED_LABELS", "").split(",") if os.getenv("IGNORED_LABELS") else []
+    }
 }
+
+rules_path = os.getenv("ALERT_RULES_FILE", "alert_rules.json")
+if os.path.exists(rules_path):
+    with open(rules_path, "r") as f:
+        config["alert_rules"] = json.load(f)
 
 with open("config.json", "w") as f:
     json.dump(config, f, indent=2)

@@ -1,0 +1,14 @@
+{
+  "driveway": {
+    "labels": ["person", "car"],
+    "zones": ["Drive"]
+  },
+  "backyard": {
+    "labels": ["person", "dog"],
+    "zones": []
+  },
+  "garage": {
+    "labels": ["person"],
+    "zones": ["Front", "Side"]
+  }
+}

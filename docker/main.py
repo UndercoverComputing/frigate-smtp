@@ -10,14 +10,12 @@ import time
 import threading
 import logging
 
-# Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Load config
 with open('config.json', 'r') as f:
     config = json.load(f)
 
@@ -28,17 +26,63 @@ SMTP_PASSWORD = config["smtp"]["password"]
 EMAIL_FROM = config["smtp"]["from"]
 EMAIL_TO = config["smtp"]["to"]
 HOMEASSISTANT_URL = config["homeassistant_url"]
-HOMEASSISTANT_IP = config["homeassistant_ip"]
+HOMEASSISTANT_IP = config.get("homeassistant_ip", HOMEASSISTANT_URL)
 
 MQTT_BROKER_IP = config["mqtt"]["broker_ip"]
 MQTT_PORT = config["mqtt"]["port"]
 MQTT_USERNAME = config["mqtt"]["username"]
 MQTT_PASSWORD = config["mqtt"]["password"]
 
-FILTERED_CAMERAS = config.get("allowed_cameras", [])
-IGNORED_LABELS = config.get("ignored_labels", [])
+try:
+    with open("alert_rules.json", "r") as f:
+        alert_rules_raw = json.load(f)
+    logger.info(f"Loaded alert_rules.json: {alert_rules_raw}")
+except Exception as e:
+    logger.error(f"Failed to load alert_rules.json, no events will be processed: {e}")
+    alert_rules_raw = {}
+
+alert_rules = {}
+for cam, rules in alert_rules_raw.items():
+    alert_rules[cam.lower()] = {
+        "labels": [lbl.lower() for lbl in rules.get("labels", [])],
+        "ignore": [lbl.lower() for lbl in rules.get("ignore", [])],
+        "zones": [zone.lower() for zone in rules.get("zones", [])]
+    }
 
 event_cache = {}
+
+def rule_allows_event(camera, label, zones):
+    cam_key = camera.lower()
+    lbl = label.lower()
+    zones_check = [z.lower() for z in zones] if zones else []
+
+    if cam_key not in alert_rules:
+        logger.debug(f"Camera '{camera}' not in alert_rules.json — event blocked")
+        return False
+
+    rule = alert_rules[cam_key]
+
+    if rule["labels"]:
+        if lbl not in rule["labels"]:
+            logger.debug(f"Label '{label}' not allowed for camera '{camera}' — event blocked")
+            return False
+
+    if rule["ignore"]:
+        if lbl in rule["ignore"]:
+            logger.debug(f"Label '{label}' is ignored for camera '{camera}' — event blocked")
+            return False
+
+    if rule["zones"]:
+        if not zones_check:
+            logger.debug(f"No zone info in event but zones filter present — event blocked")
+            return False
+        allowed_zones = [z.lower() for z in rule["zones"]]
+        if not any(zone in allowed_zones for zone in zones_check):
+            logger.debug(f"Zones {zones} not allowed for camera '{camera}' — event blocked")
+            return False
+
+    logger.debug(f"Event allowed for camera '{camera}', label '{label}', zones '{zones}'")
+    return True
 
 def send_email(message, snapshot_urls, event_label, clip_url):
     subject = f"{event_label} detected!"
@@ -58,7 +102,7 @@ def send_email(message, snapshot_urls, event_label, clip_url):
                 image_data = BytesIO(response.content)
                 msg.attach(MIMEImage(image_data.read(), name="snapshot.jpg"))
         except Exception:
-            pass  # silent fail for snapshot issues
+            pass  # silently fail snapshot issues
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
@@ -70,7 +114,7 @@ def send_email(message, snapshot_urls, event_label, clip_url):
         logger.error(f"Failed to send email: {e}")
 
 def handle_event(event_id):
-    time.sleep(10)  # Delay to collect full snapshots
+    time.sleep(10)  # Delay to collect snapshots
 
     if event_id not in event_cache:
         return
@@ -93,17 +137,16 @@ def on_message(client, userdata, message):
         if not after:
             return
 
-        event_id = after.get("id")
         event_label = after.get("label")
+        event_id = after.get("id")
         camera = after.get("camera")
+        zones = after.get("current_zones") or after.get("entered_zones") or []
 
-        if not event_id or not event_label or not camera:
+        if not event_label or not event_id or not camera:
             return
 
-        if FILTERED_CAMERAS and camera.lower() not in [c.lower() for c in FILTERED_CAMERAS]:
-            return
-
-        if event_label in IGNORED_LABELS:
+        if not rule_allows_event(camera, event_label, zones):
+            logger.info(f"Event from camera '{camera}' with label '{event_label}' and zones '{zones}' blocked by alert rules.")
             return
 
         snapshot_url = f"{HOMEASSISTANT_IP}/api/frigate/notifications/{event_id}/snapshot.jpg"
@@ -118,7 +161,7 @@ def on_message(client, userdata, message):
             }
             threading.Thread(target=handle_event, args=(event_id,), daemon=True).start()
 
-        logger.info(f"Received event: {event_label} from {camera} (Event ID: {event_id})")
+        logger.info(f"Received event: {event_label} from {camera} (Event ID: {event_id}, Zones: {zones})")
 
     except Exception as e:
         logger.error(f"Error processing MQTT message: {e}")

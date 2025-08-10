@@ -6,9 +6,9 @@ This repository provides an SMTP service for Frigate, enabling automated email n
 
 ## Prerequisites
 
-- [Docker](https://www.docker.com/get-started) installed on your system
-- [Docker Compose](https://docs.docker.com/compose/install/) installed
-- Git installed to clone the repository
+* [Docker](https://www.docker.com/get-started) installed on your system
+* [Docker Compose](https://docs.docker.com/compose/install/) installed
+* Git installed to clone the repository
 
 ## Project Structure
 
@@ -37,6 +37,7 @@ Follow these steps to set up and run the Frigate SMTP service:
    Open the `docker-compose.yaml` file in a text editor and define the necessary environment variables. Ensure all required variables (e.g., SMTP server settings) are correctly set.
 
    Example snippet from `docker-compose.yaml`:
+
    ```yaml
     services:
       frigate-smtp:
@@ -57,11 +58,44 @@ Follow these steps to set up and run the Frigate SMTP service:
           MQTT_PORT: 1883    # MQTT broker port
           MQTT_USERNAME: mqttuser    # MQTT username for authentication
           MQTT_PASSWORD: mqttpass    # MQTT password for authentication
-          ALLOWED_CAMERAS: camera1,camera2    # List of cameras to allow (comma-separated)
-          IGNORED_LABELS: label1,label2    # Labels to ignore - e.g. car, person, cat; if none, set to "..."
    ```
 
    Replace `your.smtp.server`, `587`, `your_username`, and `your_password` with your actual SMTP server details.
+
+   **Per-camera rules (optional — new feature)**
+   You can replace the global `ALLOWED_CAMERAS` / `IGNORED_LABELS` approach with a per-camera rules file named `alert_rules.json`. If present, the service will use the rules file instead of the global env vars.
+
+   Example `alert_rules.json`:
+
+   ```json
+   {
+     "driveway": {
+       "labels": ["person", "car"],
+       "zones": ["Drive"]
+     },
+     "backyard": {
+       "labels": ["person", "dog"],
+       "zones": []
+     },
+     "garage": {
+       "labels": ["person"],
+       "zones": ["Front", "Side"]
+     }
+   }
+   ```
+
+   * **labels**: list of labels to allow for that camera (case-insensitive).
+   * **zones**: list of zones to allow for that camera (case-insensitive). If left empty or omitted, events in all zones will trigger notifications for that camera.
+   * If the zones list is non-empty, events detected outside those zones for that camera will **not** generate an email alert.
+
+   Mount the file in Docker so the container can read it:
+   docker-compose.yaml:
+   ```yaml
+   volumes:
+     - ./alert_rules.json:/app/alert_rules.json:ro
+   ```
+
+   If `alert_rules.json` is present, the script will check the camera name, allowed labels, and allowed zones defined in that file. Cameras not listed in the file will be ignored. If `alert_rules.json` is not present, the script falls back to `ALLOWED_CAMERAS` and `IGNORED_LABELS`.
 
 3. **Run the Application**
 
@@ -71,8 +105,8 @@ Follow these steps to set up and run the Frigate SMTP service:
    docker compose up --build -d
    ```
 
-   - The `--build` flag ensures the Docker image is built before starting.
-   - The `-d` flag runs the containers in the background.
+   * The `--build` flag ensures the Docker image is built before starting.
+   * The `-d` flag runs the containers in the background.
 
 4. **Verify the Service**
 
@@ -92,10 +126,10 @@ docker compose down
 
 ## Troubleshooting
 
-- Ensure all environment variables in `docker-compose.yaml` are correctly set.
-- Verify that your SMTP server is accessible and the credentials are valid.
-- Check Docker logs for errors: `docker compose logs frigate-smtp`.
-- Ensure Docker and Docker Compose are up to date.
+* Ensure all environment variables in `docker-compose.yaml` are correctly set.
+* Verify that your SMTP server is accessible and the credentials are valid.
+* Check Docker logs for errors: `docker compose logs frigate-smtp`.
+* Ensure Docker and Docker Compose are up to date.
 
 ## Contributing
 

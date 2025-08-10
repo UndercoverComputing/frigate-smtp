@@ -19,3 +19,5 @@ services:
       MQTT_PASSWORD: mqttpass    # MQTT password for authentication
       ALLOWED_CAMERAS: camera1,camera2    # List of cameras to allow (comma-separated)
       IGNORED_LABELS: label1,label2    # Labels to ignore - e.g. car, person, cat; if none, set to "..."
+    volumes:
+      - ./alert_rules.json:/app/alert_rules.json:ro
