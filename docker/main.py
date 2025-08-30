@@ -16,6 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Load config
 with open('config.json', 'r') as f:
     config = json.load(f)
 
@@ -33,6 +34,7 @@ MQTT_PORT = config["mqtt"]["port"]
 MQTT_USERNAME = config["mqtt"]["username"]
 MQTT_PASSWORD = config["mqtt"]["password"]
 
+# Load alert rules
 try:
     with open("alert_rules.json", "r") as f:
         alert_rules_raw = json.load(f)
@@ -51,38 +53,46 @@ for cam, rules in alert_rules_raw.items():
 
 event_cache = {}
 
+
 def rule_allows_event(camera, label, zones):
     cam_key = camera.lower()
     lbl = label.lower()
     zones_check = [z.lower() for z in zones] if zones else []
 
     if cam_key not in alert_rules:
-        logger.debug(f"Camera '{camera}' not in alert_rules.json — event blocked")
         return False
 
     rule = alert_rules[cam_key]
 
-    if rule["labels"]:
-        if lbl not in rule["labels"]:
-            logger.debug(f"Label '{label}' not allowed for camera '{camera}' — event blocked")
-            return False
-
-    if rule["ignore"]:
-        if lbl in rule["ignore"]:
-            logger.debug(f"Label '{label}' is ignored for camera '{camera}' — event blocked")
-            return False
-
+    if rule["labels"] and lbl not in rule["labels"]:
+        return False
+    if rule["ignore"] and lbl in rule["ignore"]:
+        return False
     if rule["zones"]:
         if not zones_check:
-            logger.debug(f"No zone info in event but zones filter present — event blocked")
             return False
         allowed_zones = [z.lower() for z in rule["zones"]]
         if not any(zone in allowed_zones for zone in zones_check):
-            logger.debug(f"Zones {zones} not allowed for camera '{camera}' — event blocked")
             return False
 
-    logger.debug(f"Event allowed for camera '{camera}', label '{label}', zones '{zones}'")
     return True
+
+
+def fetch_snapshot_with_retry(snapshot_url, retries=5, delay=1):
+    """
+    Try to fetch a valid snapshot, retrying if it fails.
+    """
+    for attempt in range(retries):
+        try:
+            response = requests.get(snapshot_url, timeout=5)
+            response.raise_for_status()
+            if 'image' in response.headers.get('Content-Type', ''):
+                return response.content
+        except Exception as e:
+            logger.debug(f"Snapshot fetch failed (attempt {attempt+1}/{retries}): {e}")
+        time.sleep(delay)
+    return None
+
 
 def send_email(message, snapshot_urls, event_label, clip_url):
     subject = f"{event_label} detected!"
@@ -95,14 +105,9 @@ def send_email(message, snapshot_urls, event_label, clip_url):
     msg.attach(MIMEText(body))
 
     for snapshot_url in snapshot_urls:
-        try:
-            response = requests.get(snapshot_url, timeout=5)
-            response.raise_for_status()
-            if 'image' in response.headers.get('Content-Type', ''):
-                image_data = BytesIO(response.content)
-                msg.attach(MIMEImage(image_data.read(), name="snapshot.jpg"))
-        except Exception:
-            pass  # silently fail snapshot issues
+        image_bytes = fetch_snapshot_with_retry(snapshot_url)
+        if image_bytes:
+            msg.attach(MIMEImage(image_bytes, name="snapshot.jpg"))
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
@@ -113,19 +118,26 @@ def send_email(message, snapshot_urls, event_label, clip_url):
     except Exception as e:
         logger.error(f"Failed to send email: {e}")
 
-def handle_event(event_id):
-    time.sleep(10)  # Delay to collect snapshots
 
+def handle_event(event_id):
     if event_id not in event_cache:
         return
 
     event_info = event_cache[event_id]
+
+    # Don’t send again if already emailed
+    if event_info.get("emailed"):
+        logger.debug(f"Skipping already emailed event: {event_id}")
+        return
+
     clip_url = f"{HOMEASSISTANT_URL}/api/frigate/notifications/{event_id}/{event_info['camera']}/clip.mp4"
     message = f"A {event_info['event_label']} was detected on camera: {event_info['camera']}.\nEvent ID: {event_id}"
+
     send_email(message, event_info['snapshot_urls'], event_info['event_label'], clip_url)
 
+    event_cache[event_id]['emailed'] = True
     logger.info(f"Processed and emailed event: {event_id}")
-    event_cache.pop(event_id, None)
+
 
 def on_message(client, userdata, message):
     try:
@@ -151,20 +163,25 @@ def on_message(client, userdata, message):
 
         snapshot_url = f"{HOMEASSISTANT_IP}/api/frigate/notifications/{event_id}/snapshot.jpg"
 
-        if event_id in event_cache:
-            event_cache[event_id]['snapshot_urls'].append(snapshot_url)
-        else:
+        if event_id not in event_cache:
+            # First time seeing this event
             event_cache[event_id] = {
                 'event_label': event_label,
                 'camera': camera,
-                'snapshot_urls': [snapshot_url]
+                'snapshot_urls': [snapshot_url],
+                'emailed': False
             }
+            # Send email immediately in a thread
             threading.Thread(target=handle_event, args=(event_id,), daemon=True).start()
+        else:
+            # Already seen this event → just collect snapshots
+            event_cache[event_id]['snapshot_urls'].append(snapshot_url)
 
         logger.info(f"Received event: {event_label} from {camera} (Event ID: {event_id}, Zones: {zones})")
 
     except Exception as e:
         logger.error(f"Error processing MQTT message: {e}")
+
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc != 0:
@@ -177,6 +194,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
         userdata["first_connect"] = False
     else:
         logger.debug("Reconnected to MQTT broker")
+
 
 def connect_mqtt():
     client = mqtt.Client(
@@ -198,6 +216,7 @@ def connect_mqtt():
         except Exception as e:
             logger.error(f"MQTT connection failed: {e}. Retrying in 5 seconds...")
             time.sleep(5)
+
 
 if __name__ == "__main__":
     connect_mqtt()
