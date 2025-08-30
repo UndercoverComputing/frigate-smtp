@@ -28,7 +28,7 @@ Follow these steps to set up and run the Frigate SMTP service:
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/The-Dark-Mode/frigate-smtp
+   git clone https://github.com/UndercoverComputing/frigate-smtp
    cd frigate-smtp/docker/
    ```
 
