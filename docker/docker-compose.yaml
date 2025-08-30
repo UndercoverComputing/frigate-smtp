@@ -12,7 +12,7 @@ services:
       EMAIL_FROM: user@example.com    # Sender email address
       EMAIL_TO: you@example.com,friend@example.com     # Recipient email addresses (comma-separated)
       HOMEASSISTANT_URL: https://ha.domain.com    # URL to Home Assistant instance (external) (Without a slash at the end) 
-      HOMEASSISTANT_IP: http://ha-ip:8123    # Home Assistant internal IP URL
+      HOMEASSISTANT_IP: http://ha-ip:8123    # Home Assistant internal IP URL (Without a slash at the end) 
       MQTT_BROKER_IP: mqtt-ip    # MQTT broker IP address
       MQTT_PORT: 1883    # MQTT broker port
       MQTT_USERNAME: mqttuser    # MQTT username for authentication
