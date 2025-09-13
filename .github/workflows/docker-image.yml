@@ -15,20 +15,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Login to Docker Hub using secrets
+      # 2️⃣ Ensure no leftover Docker credentials
+      - name: Logout any existing Docker credentials
+        run: docker logout || true
+
+      # 3️⃣ Login to Docker Hub using secrets
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 3️⃣ Build and push the Docker image
+      # 4️⃣ Build and push Docker image from /docker folder
       - name: Build and Push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./docker           # points to /docker folder
-          file: ./docker/Dockerfile   # explicit Dockerfile path
+          context: ./docker           # Build context points to /docker
+          file: ./docker/Dockerfile   # Explicit Dockerfile path
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/frigate-smtp:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/frigate-smtp:${{ github.sha }}
+
+      # 5️⃣ Optional: List images to confirm
+      - name: List Docker images
+        run: docker images
